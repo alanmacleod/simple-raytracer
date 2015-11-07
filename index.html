@@ -1,0 +1,149 @@
+
+<html>
+<head>
+    <title>very simple raytracer</title>
+    <script src="Vector3.js"></script>
+    <script src="Sphere.js"></script>
+</head>
+
+<body>
+
+<canvas id="display" width="800" height="600" style="border: 1px solid gray">
+</canvas>
+
+
+</body>
+
+
+<script>
+
+    var SWIDTH = 800, SHEIGHT=600;
+
+    var DepthShadingDistance = 25;
+
+    var Camera = new Vector3([0,0,-5]);
+    var ProjectionPlane = genProjectionPlane(SWIDTH, SHEIGHT);
+    var SceneObjects = [];
+
+    var testobj = new Sphere(new Vector3([0.25, 2, 5]), 3);
+    var testobj2 = new Sphere(new Vector3([-2.5, 1, 7]), 1.5);
+    var testobj3 = new Sphere(new Vector3([-8, 5, 10]), 2);
+    testobj2.colour = [0,0,255,255];
+    testobj3.colour = [0,255,0,255];
+
+    SceneObjects.push(testobj);
+    SceneObjects.push(testobj2);
+    SceneObjects.push(testobj3);
+
+
+    var canvas = document.getElementById('display');
+    var context = canvas.getContext('2d');
+
+    var imgdata = context.getImageData(0,0,SWIDTH,SHEIGHT);
+
+    var dx = (ProjectionPlane.xright - ProjectionPlane.xleft) / SWIDTH;
+    var dy = (ProjectionPlane.ybottom - ProjectionPlane.ytop) / SHEIGHT;
+
+    var wx, wy;
+
+    wy = ProjectionPlane.ytop;
+
+
+    var time_start = Date.now();
+
+    for (var y=0; y < SHEIGHT; y++)
+    {
+        wx = ProjectionPlane.xleft;
+
+        for (var x=0; x < SWIDTH; x++)
+        {
+
+            var projPixel = new Vector3([wx, wy, 0]);
+
+            var dir = projPixel.subtract(Camera);
+            dir.normalise();
+
+            var Ray = {
+                origin: Camera,
+                direction: dir
+            };
+
+            var result = Raytrace(Ray);//{dist: 0, hit:false};//
+
+            if (result.hit) {
+                var col = result.object.colour;
+
+                // cheap ass depth-shading
+                var shade = result.dist / DepthShadingDistance;
+                if (shade > 1) shade = 1;
+                shade = 1-shade;
+
+                pset(x, y, [col[0]*shade, col[1]*shade, col[2]*shade, col[3]]);
+
+            }
+
+            wx += dx;
+
+        }
+
+        wy += dy;
+    }
+
+
+    context.putImageData(imgdata, 0,0);
+
+    var ms = Date.now() - time_start;
+    console.log("Render time: "+ms+" ms");
+
+
+    function Raytrace(ray)
+    {
+        var tracepoint = {dist: 1000000};
+
+        for (var t=0; t<SceneObjects.length; t++)
+        {
+            var obj = SceneObjects[t];
+            var result = obj.intersect(ray);
+
+            if (result.hit == true)
+            {
+                if (result.dist < tracepoint.dist)
+                {
+                    tracepoint.hit = true;
+                    tracepoint.object = obj;
+                    tracepoint.dist = result.dist;
+                }
+            }
+        }
+
+        return tracepoint;
+
+    }
+
+    function pset(x,y,c)
+    {
+        var ofs = y * 4 * SWIDTH + (x*4);
+        imgdata.data[ofs+0] = c[0];
+        imgdata.data[ofs+1] = c[1];
+        imgdata.data[ofs+2] = c[2];
+        imgdata.data[ofs+3] = c[3];
+    }
+
+    function genProjectionPlane(w, h)
+    {
+        var uw = w / 100;
+        var uh = h / 100;
+
+        var xmin = -(uw/2);
+        var xmax = uw/2;
+        var ymin = -(uh/2);
+        var ymax = uh/2;
+
+        return {xleft:xmin, xright:xmax, ybottom:ymin, ytop:ymax}
+
+    }
+
+</script>
+
+
+</html>
