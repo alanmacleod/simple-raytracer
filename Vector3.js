@@ -72,6 +72,14 @@ function Vector3(x,y,z) {
         return v;
     };
 
+    this.scale = function(scalar)
+    {
+        this.x *= scalar;
+        this.y *= scalar;
+        this.z *= scalar;
+        return this;
+    };
+
     this.add = function(vec)
     {
         var v = new Vector3();

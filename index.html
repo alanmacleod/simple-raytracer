@@ -87,8 +87,42 @@
                 var r = col[0] * shade, g = col[1]*shade, b = col[2] *shade;
                 if (r > 255) r=255; if (g > 255) g=255; if (b>255) b=255;
                 if (r<0) r=0; if (g<0) g= 0; if (b<0) b=0;
+                var a = col[3];
+                col = [];
 
-                pset(x, y, [r,g,b,col[3]]);
+                col[0] = r;
+                col[1] = g;
+                col[2] = b;
+                col[3] = a;
+
+
+                var rayIntercept = Ray.origin.add(Ray.direction);
+                rayIntercept.scale(result.dist);
+
+
+                if (result.object.getIntersectionCoordinate)
+                {
+                    var tex = result.object.getIntersectionCoordinate(rayIntercept);
+                    var scale = 32;
+                    var pattern = (((tex.u * scale) % 1) > 0.5) ^ (((tex.v * scale) % 1) > 0.5);
+                    var col2 = [];
+                    col2[0] = col[0] * 0.8;
+                    col2[1] = col[1] * 0.8;
+                    col2[2] = col[2] * 0.8;
+                    col2[3] = col[3];
+
+                    var scale2 = Math.max(0, tex.nhit.dot(dir.scale(-1)));
+                    col = colourMix(col, col2, pattern);
+
+                    col[0] = Math.floor(col[0] * scale2);
+                    col[1] = Math.floor(col[1] * scale2);
+                    col[2] = Math.floor(col[2] * scale2);
+                    col[3] = 255;
+
+                }
+
+
+                pset(x, y, col);
 
             }
 
@@ -105,6 +139,17 @@
     var ms = Date.now() - time_start;
     console.log("Render time: "+ms+" ms");
 
+    function colourMix(c1, c2, mix)
+    {
+        var n = [];
+
+        n[0] = (c1[0] * (1 - mix)) + c2[0] * mix;
+        n[1] = (c1[1] * (1 - mix)) + c2[1] * mix;
+        n[2] = (c1[2] * (1 - mix)) + c2[2] * mix;
+        n[3] = 255;
+
+        return n;
+    }
 
     function Raytrace(ray)
     {

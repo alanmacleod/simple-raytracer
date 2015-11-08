@@ -9,6 +9,17 @@ function Sphere(v3_pos, radius, colour)
 
     this.done = 0;
 
+    this.getIntersectionCoordinate = function(hitRay)
+    {
+        var nhit = hitRay.subtract(this.position);
+        nhit.normalise();
+
+        var u = (1 + Math.atan2(nhit.z, nhit.x) / Math.PI) * 0.5;
+        var v = Math.acos(nhit.y) / Math.PI;
+
+        return {u: u, v:v, nhit:nhit};
+    };
+
     this.intersect = function(ray)
     {
         var v = ray.origin.subtract(this.position);
