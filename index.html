@@ -2,9 +2,9 @@
 <html>
 <head>
     <title>very simple raytracer</title>
-    <script src="Vector3.js"></script>
-    <script src="Sphere.js"></script>
-    <script src="Plane.js"></script>
+    <script src="3d/Vector3.js"></script>
+    <script src="3d/Sphere.js"></script>
+    <script src="3d/Plane.js"></script>
 </head>
 
 <body>
@@ -26,11 +26,11 @@
     var ProjectionPlane = genProjectionPlane(SWIDTH, SHEIGHT);
     var SceneObjects = [];
 
-    var testobj = new Sphere(new Vector3([0.25, 2, 5]), 3);
+    var testobj = new Sphere(new Vector3([2.5, 2, 5]), 3);
     var testobj2 = new Sphere(new Vector3([-4, -2, 18]), 10);
     var testobj3 = new Sphere(new Vector3([-4, 5, 8]), 2);
 
-    var testPlane = new Plane(new Vector3([0,1,0]), 4.5);
+    var testPlane = new Plane(new Vector3([0,1,0]), 3.5);
 
     testobj2.colour = [0,0,255,255];
     testobj3.colour = [0,255,0,255];

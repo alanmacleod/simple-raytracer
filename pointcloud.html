@@ -1,0 +1,384 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - loaders - OBJ loader</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #000;
+            color: #fff;
+            margin: 0px;
+            overflow: hidden;
+        }
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display:block;
+        }
+        #info a, .button { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer }
+    </style>
+
+    <script src="lib/jquery-1.11.3.min.js"></script>
+    <script src="lib/three.min.js"></script>
+    <script src="lib/FirstPersonControls.js"></script>
+    <script src="spatial/octree.js"></script>
+
+</head>
+
+<body>
+<div id="info">
+
+    <!-- <button type="button" onclick="loadTest()">Load test</button> -->
+    <button type="button" onclick="loadPoints()">Load point cloud</button>
+    <button type="button" onclick="campos()">Set cam</button>
+    <br/>
+    <div id="lodProgress" style="font-size: 12pt; width: auto; color:yellowgreen;"></div>
+</div>
+
+
+<script>
+
+    var infoDiv = document.getElementById("lodProgress");
+    var container;
+
+    var camera, scene, renderer;
+
+    var texture;
+
+    var controls;
+
+    var mouseX = 0, mouseY = 0;
+
+    var windowHalfX = window.innerWidth / 2;
+    var windowHalfY = window.innerHeight / 2;
+
+    var geometry;
+    var pcloud = null;
+
+
+    var clock = new THREE.Clock();
+
+    var octree = null;
+
+
+
+    init();
+    animate();
+
+    function campos(vec)
+    {
+
+        //423, 243, 592
+        //-2.71, -0.43, -2.96
+        camera.position.x = 423;
+        camera.position.y = 243;
+        camera.position.z = 592;
+
+        camera.rotation.x = 0.2;
+        camera.rotation.y = -2.44;
+        camera.rotation.z = 0;
+
+        //camera.lookAt(new THREE.Vector3(vec.x, vec.y, vec.z));
+
+
+    }
+
+    var first;
+    function loadPoints()
+    {
+        $.getJSON('./data/stadium.json', function(data){
+
+
+            for (var t= 0,l=data.length; t<l;t++)
+            {
+                data[t].x = (data[t].x - 630000) / 10;
+                data[t].y = (data[t].y - 840000) / 10;
+                data[t].z = (data[t].z) / 10;
+                if (t==0) first = data[t];
+            }
+
+            var bounds = getDatasetExtent(data);
+
+            octree = new Octree(bounds);
+            octree.build(data);
+
+
+
+            rebuildMesh();
+
+            campos(first);
+
+        });
+    }
+
+    function rebuildMesh()
+    {
+        if (octree == null) return;
+
+        renderPoints = [];
+
+        OctreeCull(octree);
+        geometry = new THREE.Geometry();
+
+        for (var t= 0,l=renderPoints.length; t<l;t++)
+        {
+            var p = renderPoints[t];
+            var v = new THREE.Vector3();
+
+            v.x = p.x;
+            v.z = p.y;
+            v.y = p.z;
+
+            geometry.vertices.push(v);
+
+            //  if (t<10) console.log(v);
+        }
+
+        if (pcloud != null)
+            scene.remove(pcloud);
+
+        var mat = new THREE.PointsMaterial({size: 3, color: 0xaaaaaa, fog:false});
+        pcloud = new THREE.Points(geometry, mat);
+
+        scene.add(pcloud);
+    }
+
+    var renderPoints = [];
+
+    function OctreeCull(oct)
+    {
+        if (oct.points.length > 0)
+        {
+            for (var t=0; t<oct.points.length; t++)
+            {
+                renderPoints.push(oct.points[t]);
+            }
+        }
+
+        if (oct.leaf) return;
+
+        /*
+        var cn = octree.bounds.centre;
+        var pt = new THREE.Vector3(cn.x, cn.y, cn.z);
+        var _frustum = new THREE.Frustum();
+        var _projScreenMatrix = new THREE.Matrix4();
+        camera.matrixWorldInverse.getInverse( camera.matrixWorld );
+
+        _projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
+        _frustum.setFromMatrix( _projScreenMatrix );
+        */
+
+        //if (_frustum.intersectsSphere(new THREE.Sphere(pt, octree.bounds.radius)))
+        {
+            for (var c = 0; c < 8; c++) {
+                OctreeCull(oct.children[c]);
+            }
+        }
+
+    }
+
+
+    function getDatasetExtent(points)
+    {
+        var maxx = -100000, minx = 100000;
+        var maxy = -100000, miny = 100000;
+        var maxz = -100000, minz = 100000;
+
+        for (var t=0; t<points.length; t++)
+        {
+            var p = points[t];
+            if (p.x < minx) minx = p.x;
+            if (p.x > maxx) maxx = p.x;
+            if (p.y < miny) miny = p.y;
+            if (p.y > maxy) maxy = p.y;
+            if (p.z < minz) minz = p.z;
+            if (p.z > maxz) maxz = p.z;
+        }
+
+        console.log(minx, maxx);
+        console.log(miny, maxy);
+        console.log(minz, maxz);
+
+        var cx = (minx + maxx) / 2;
+        var cy = (miny + maxy) / 2;
+        var cz = (minz + maxz) / 2;
+
+        var xsize = (maxx - minx);
+        var ysize = (maxy - miny);
+        var zsize = (maxz - minz);
+
+        var rad = 0;
+
+        if (xsize > rad) rad = xsize;
+        if (ysize > rad) rad = ysize;
+        if (zsize > rad) rad = zsize;
+
+        return {
+            centre: {
+                x: cx,
+                y: cy,
+                z: cz
+            },
+            radius: rad / 2
+        };
+
+
+    };
+
+    function init() {
+
+        container = document.createElement( 'div' );
+        document.body.appendChild( container );
+
+        camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.z = 100;
+
+        // scene
+
+        scene = new THREE.Scene();
+
+        var ambient = new THREE.AmbientLight( 0xf0f0f0 );
+        scene.add( ambient );
+
+        var directionalLight = new THREE.DirectionalLight( 0xffaa99);
+        directionalLight.position.set( 0, 0, 1 );
+
+        //texture = new THREE.Texture();
+
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        container.appendChild( renderer.domElement );
+
+/*
+        controls = new THREE.FirstPersonControls( camera );
+
+        controls.movementSpeed = 500;
+        controls.lookSpeed = 0.2;
+        controls.lookVertical = true;
+        controls.constrainVertical = true;
+        controls.verticalMin = 0.75;
+        controls.verticalMax = 2.75;
+        controls.mouseDragOn = true;
+        */
+
+
+        //controls = new THREE.OrbitControls( camera, renderer.domElement );
+        //controls.minDistance = -500;
+        //controls.maxDistance = 500;
+
+        //document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+
+        //
+
+
+        //console.log(camera.position, camera.rotation);
+
+        window.addEventListener( 'resize', onWindowResize, false );
+        window.addEventListener( 'keydown', onKeyDown, false );
+
+    }
+
+    function onKeyDown(event)
+    {
+        var keys = { LEFT: 37, UP: 38, RIGHT: 39, BOTTOM: 40,
+            A: 65, W:87, S:83, D: 68, MINUS: 189, PLUS: 187
+        };
+
+
+     //   console.log(event.keyCode);
+        switch(event.keyCode)
+        {
+            case keys.LEFT:
+                camera.rotation.y -= 5 * Math.PI / 180;
+                break;
+            case keys.RIGHT:
+                camera.rotation.y += 5 * Math.PI / 180;
+                break;
+
+
+            case keys.W:
+                camera.position.z +=10;
+                break;
+            case keys.S:
+                camera.position.z -=10;
+                break;
+            case keys.A:
+                camera.position.x -=10;
+                break;
+            case keys.D:
+                camera.position.x +=10;
+                break;
+            case keys.MINUS:
+                camera.position.y -=10;
+                break
+            case keys.PLUS:
+                camera.position.y +=10;
+                break
+
+
+
+
+        }
+        //console.log(camera.position);
+
+    }
+
+    function onWindowResize() {
+
+        windowHalfX = window.innerWidth / 2;
+        windowHalfY = window.innerHeight / 2;
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( window.innerWidth, window.innerHeight );
+
+    }
+
+    function onDocumentMouseMove( event ) {
+
+        // mouseX = ( event.clientX - windowHalfX ) / 2;
+        //  mouseY = ( event.clientY - windowHalfY ) / 2;
+
+    }
+
+    //
+
+    //423, 243, 592
+    //-2.71, -0.43, -2.96
+
+    function animate() {
+
+        requestAnimationFrame( animate );
+        render();
+
+    }
+
+    function render() {
+
+        camera.rotation.z = 0;
+        // camera.position.x += ( mouseX - camera.position.x ) * .05;
+        // camera.position.y += ( - mouseY - camera.position.y ) * .05;
+
+        infoDiv.innerHTML = camera.position.x.toFixed(1)+","+camera.position.y.toFixed(1)+","+camera.position.z.toFixed(1)+", rot = "+(camera.rotation.x ).toFixed(2)+", "+(camera.rotation.y  ).toFixed(2)+", "+(camera.rotation.z).toFixed(2);
+
+        rebuildMesh(); // campos(first);
+         //camera.lookAt( scene.position );
+        //controls.update( clock.getDelta() );
+        renderer.render( scene, camera );
+
+    }
+
+</script>
+
+</body>
+</html>
