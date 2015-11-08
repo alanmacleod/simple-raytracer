@@ -7,6 +7,9 @@ function Octree(bounds)
     this.points = [];
     this.bounds = bounds; // .centre:{xyz}, .radius: 10
     this.leaf = false;
+    this.size = -1;
+    this.level = 0;
+
 
     this.build = function(points)
     {
@@ -18,6 +21,12 @@ function Octree(bounds)
         if (points.length > MAX_LEAF_OBJECTS)
         {
             this.subdivide();
+
+            // Send the points down to the octant children
+
+            var allChildPoints = [];
+
+            var childSize = 0;
 
             for (var c = 0; c < 8; c++)
             {
@@ -33,16 +42,103 @@ function Octree(bounds)
                     points.splice(points.indexOf(childPoints[p]),1);
 
                 this.children[c].build(childPoints);
+
+                /*
+                if (childNodeInfo)
+                {
+                    if (childNodeInfo.size > childSize)
+                        childSize = childNodeInfo.size;
+
+                    if (childNodeInfo.points != null)
+                    {
+                        for (var t = 0, l = childNodeInfo.points.length; t < l; t++)
+                            allChildPoints.push(childNodeInfo.points[t]);
+                    }
+                }
+                */
+
             }
 
-            this.points = []; // clear the array for sure
+           // var resamplePasses = 1;
+
+            // Down sample our point cluster and also scale up our point size to match the change in density
+
+           // this.points = this.downSample(allChildPoints, resamplePasses);
+           // this.size = childSize * Math.pow(2, resamplePasses);
+
+          //  console.log(this.size);
+
+            return ;//{points: this.points, size: this.size}
 
         } else {
             this.leaf = true;
-            //console.log("Added "+points.length+". Thank you!");
+
             for (var t=0; t<points.length; t++)
                 this.points.push(points[t]);
+
+            return {points: this.points, size: this.size};
+            //return this.points; //return what we got to the parent to perform sampling.
         }
+    };
+
+    this.resampleTree = function(node)
+    {
+
+        if (!node.leaf)
+        {
+            var childrenPoints = [];
+            for (var c = 0; c < 8; c++)
+            {
+                if (node.children[c].points.length >0)
+                {
+                    for (var t = 0; t < node.children[c].points.length; t++)
+                        childrenPoints.push(node.children[c].points[t]);
+
+                }
+                else {
+                    var pts = this.resampleTree(node.children[c]);
+
+                    if (pts.length > 0) {
+                        for (var t = 0; t < pts.length; t++)
+                            childrenPoints.push(pts[t]);
+                    }
+                }
+            }
+
+
+            node.points = this.downSample(childrenPoints, 1);
+
+            //return {leaf: false, points: node.points};
+            return node.points;
+
+        } else {
+
+            //return {leaf: true, points: node.points, size: 1};
+            return node.points;
+
+        }
+
+    };
+
+
+
+    this.downSample = function(points, times) //reduces data set by half each time
+    {
+        var sampledPts = [];
+
+        for (var p=0; p<times; p++)
+        {
+            sampledPts = [];
+
+            for (var t=0; t<points.length; t+=2)
+            {
+                sampledPts.push(points[t]);
+            }
+
+            points = sampledPts;
+        }
+
+        return sampledPts;
     };
 
     this.subdivide = function()
@@ -50,6 +146,7 @@ function Octree(bounds)
         for (var c=0; c<8; c++)
         {
             this.children[c] = new Octree(this.getChildBounds(c));
+            this.children[c].level = this.level + 1;
         }
     };
 

@@ -59,8 +59,10 @@
     var windowHalfX = window.innerWidth / 2;
     var windowHalfY = window.innerHeight / 2;
 
-    var geometry;
-    var pcloud = null;
+    var materials = [];
+    var geometries = [];
+
+    var cloudList = [];
 
 
     var clock = new THREE.Clock();
@@ -75,17 +77,24 @@
     function campos(vec)
     {
 
-        //423, 243, 592
-        //-2.71, -0.43, -2.96
-        camera.position.x = 423;
-        camera.position.y = 243;
-        camera.position.z = 592;
+        // 44.1, 477.9, 98.2,
+        // -2.75, -0.6, 0
 
-        camera.rotation.x = 0.2;
-        camera.rotation.y = -2.44;
-        camera.rotation.z = 0;
 
-        //camera.lookAt(new THREE.Vector3(vec.x, vec.y, vec.z));
+        camera.position.x = 44.1;
+        camera.position.y = 477.9;
+        camera.position.z = 98.2;
+
+        //camera.rotation.x = -2.75;
+        //camera.rotation.y = -0.6;
+        //camera.rotation.z = 0;
+
+        var cp = octree.bounds.centre;
+
+        var v = new THREE.Vector3(cp.x, cp.y, cp.z);
+
+        //controls.target = v;
+        camera.lookAt(v);
 
 
     }
@@ -95,19 +104,33 @@
     {
         $.getJSON('./data/stadium.json', function(data){
 
+            console.log("point cloud size = "+data.length);
 
             for (var t= 0,l=data.length; t<l;t++)
             {
-                data[t].x = (data[t].x - 630000) / 10;
-                data[t].y = (data[t].y - 840000) / 10;
-                data[t].z = (data[t].z) / 10;
+                var x = (data[t].x - 630000) / 10;
+                var z = (data[t].y - 840000) / 10;
+                var y = (data[t].z) / 10;
+
+                data[t].x = x;
+                data[t].y = y;
+                data[t].z = z;
+
+                if (t < 10) console.log(data[t]);
                 if (t==0) first = data[t];
             }
 
             var bounds = getDatasetExtent(data);
 
             octree = new Octree(bounds);
+            //var info =
             octree.build(data);
+            octree.resampleTree(octree);
+
+//            console.log("info size = "+info.size);
+
+            //console.log("Build Octree. Parent pt count = "+octree.points.length+" pt size = "+octree.level);
+            //console.log(octree.children[0].level, octree.children[0].children[0].level);
 
 
 
@@ -122,64 +145,227 @@
     {
         if (octree == null) return;
 
-        renderPoints = [];
+        renderNodes = [];
 
-        OctreeCull(octree);
-        geometry = new THREE.Geometry();
-
-        for (var t= 0,l=renderPoints.length; t<l;t++)
-        {
-            var p = renderPoints[t];
-            var v = new THREE.Vector3();
-
-            v.x = p.x;
-            v.z = p.y;
-            v.y = p.z;
-
-            geometry.vertices.push(v);
-
-            //  if (t<10) console.log(v);
-        }
-
-        if (pcloud != null)
-            scene.remove(pcloud);
-
-        var mat = new THREE.PointsMaterial({size: 3, color: 0xaaaaaa, fog:false});
-        pcloud = new THREE.Points(geometry, mat);
-
-        scene.add(pcloud);
-    }
-
-    var renderPoints = [];
-
-    function OctreeCull(oct)
-    {
-        if (oct.points.length > 0)
-        {
-            for (var t=0; t<oct.points.length; t++)
-            {
-                renderPoints.push(oct.points[t]);
-            }
-        }
-
-        if (oct.leaf) return;
-
-        /*
-        var cn = octree.bounds.centre;
-        var pt = new THREE.Vector3(cn.x, cn.y, cn.z);
-        var _frustum = new THREE.Frustum();
-        var _projScreenMatrix = new THREE.Matrix4();
+        var frustum = new THREE.Frustum();
+        var projScreenMatrix = new THREE.Matrix4();
         camera.matrixWorldInverse.getInverse( camera.matrixWorld );
 
-        _projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
-        _frustum.setFromMatrix( _projScreenMatrix );
-        */
+        projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
+        frustum.setFromMatrix( projScreenMatrix );
 
-        //if (_frustum.intersectsSphere(new THREE.Sphere(pt, octree.bounds.radius)))
+        //console.clear();
+        for (var t=0; t<frustum.planes.length; t++)
         {
-            for (var c = 0; c < 8; c++) {
-                OctreeCull(oct.children[c]);
+
+            //console.log(frustum.planes[t].normal);
+
+        }
+
+        var nc = octree.bounds.centre;
+        var centreTree = new THREE.Vector3(nc.x, nc.y, nc.z);
+
+//        var dist = camera.position.distanceTo(centreTree);
+
+        //console.log("Cam ["+camera.position.x.toFixed(2)+", "+camera.position.y.toFixed(2)+", "+camera.position.z.toFixed(2)+"]   " +"Tree ["+centreTree.x.toFixed(2)+", "+centreTree.y.toFixed(2)+", "+centreTree.z.toFixed(2)+"]   dist = " +dist);
+
+        //console.log("Cam -> Tree distance = "+dist);
+
+
+
+        OctreeCull2(octree, camera.position);
+
+        var s = "";
+        for (var t=0; t<renderNodes.length; t++)
+        {
+            s += "["+renderNodes[t].points.length+": "+renderNodes[t].size+"]";
+
+        }
+
+        msg("Rendernodes: "+s);
+
+        for (var t=0; t<cloudList.length; t++)
+        {
+            scene.remove(cloudList[t]);
+        }
+
+        cloudList = [];
+
+
+        for (var l=0; l<renderNodes.length; l++)
+        {
+            var node = renderNodes[l];
+
+            var mindex = 0;
+            if (node.size ==1) mindex = 0;
+            if (node.size ==2) mindex = 1;
+            if (node.size ==4) mindex = 2;
+            if (node.size ==8) mindex = 3;
+            if (node.size ==16) mindex = 4;
+            if (node.size >16) mindex = 4;
+
+            var geometry = new THREE.Geometry();
+
+            for (var t= 0,Q=node.points.length; t<Q;t++)
+            {
+                var p = node.points[t];
+                var v = new THREE.Vector3();
+
+                v.x = p.x;
+                v.y = p.y;
+                v.z = p.z;
+
+                //geometries[l].vertices.push(v);
+                geometry.vertices.push(v);
+                //geometries[l] = geometry;
+
             }
+
+            var cloud = new THREE.Points(geometry, materials[mindex]);
+            //if (mindex == 3)
+                scene.add(cloud);
+            cloudList.push(cloud);
+
+        }
+
+
+    }
+
+
+
+    var renderNodes = [];
+
+    function levelDetail(l)
+    {
+        var levels = [];
+        levels[0] = {dist: 1000, size: 16};
+        levels[1] = {dist: 650, size: 8};
+        levels[2] = {dist: 400, size: 4};
+        levels[3] = {dist: 250, size: 2};
+        levels[4] = {dist: 100, size: 1};
+        levels[5] = {dist: 50, size: 1};
+        levels[6] = {dist: 1, size: 1};
+
+
+        if (l < 0) return levels[0];
+        if (l > levels.length-1) return levels[levels.length-1];
+
+        return levels[l];
+    }
+
+    function get_LOD_Threshold_For_Point_Size(psize)
+    {
+       // var index = Math.log2(psize);
+       // var lut = [100, 250, 350, 650, 1000, 5000];
+
+        return lut[index];
+    }
+
+
+    function OctreeCull(oct, camposVec3)
+    {
+
+        // is node over its threshold distance?
+        // if yes, just return all points for this node
+        // if no, recurse into children
+
+        var lodDist = camposVec3.distanceTo(new THREE.Vector3(oct.bounds.centre.x, oct.bounds.centre.y, oct.bounds.centre.z));
+        var nodeDetail = levelDetail(oct.level);
+
+        if (lodDist > nodeDetail.dist || oct.leaf == true)
+        {
+            return oct.points;
+
+        } else {
+
+            var childPoints = [];
+
+            for (var t=0; t<8; t++)
+            {
+                var pts = OctreeCull(oct.children[t], camposVec3);
+                childPoints.push(pts);
+
+            }
+
+            var nodePoints = [];
+
+            for (var c=0; c<childPoints.length; c++)
+            {
+                var pts = childPoints[c];
+                for (var t=0; t<pts.length; t++)
+                {
+                    nodePoints.push(pts[t]);
+                }
+            }
+
+            return nodePoints;
+
+        }
+
+
+
+    }
+
+    function OctreeCull2(oct, camposVec3)
+    {
+        if (oct.leaf == true)
+        {
+            if (oct.points.length > 0)
+            {
+                var renderPoints = [];
+                for (var t = 0; t < oct.points.length; t++) {
+                    renderPoints.push(oct.points[t]);
+                }
+
+                renderNodes.push({points: renderPoints, size:1});
+            }
+            return;
+        }
+
+
+        var lodDist = camposVec3.distanceTo(new THREE.Vector3(oct.bounds.centre.x, oct.bounds.centre.y, oct.bounds.centre.z));
+
+        //var thresh = get_LOD_Threshold_For_Point_Size(oct.size);
+        var nodeDetail = levelDetail(oct.level);
+
+        // if this node's distance from the camera is => its threshold then stop recursing here
+     //   console.log("if "+lodDist+" > "+thresh);
+        if (lodDist > nodeDetail.dist) {
+            if (oct.points.length > 0) {
+                //console.log("Getting pts from level " + oct.level);
+                var renderPoints = [];
+                for (var t = 0; t < oct.points.length; t++) {
+                    renderPoints.push(oct.points[t]);
+                }
+
+                //console.log(nodeDetail.size);
+                renderNodes.push({points: renderPoints, size: nodeDetail.size});
+            }
+
+            return;
+
+        } else if (lodDist < nodeDetail.dist && oct.leaf == true) {
+
+            if (oct.points.length > 0)
+            {
+                //console.log("Getting pts from level " + oct.level);
+                var renderPoints = [];
+                for (var t = 0; t < oct.points.length; t++) {
+                    renderPoints.push(oct.points[t]);
+                }
+
+                //console.log(nodeDetail.size);
+                renderNodes.push({points: renderPoints, size: nodeDetail.size});
+            }
+            return;
+
+        }
+
+        if (oct.leaf) return; //sometimes a leaf can be empty so make sure we exit now
+
+        for (var c = 0; c < 8; c++)
+        {
+            OctreeCull2(oct.children[c], camposVec3);
         }
 
     }
@@ -201,10 +387,6 @@
             if (p.z < minz) minz = p.z;
             if (p.z > maxz) maxz = p.z;
         }
-
-        console.log(minx, maxx);
-        console.log(miny, maxy);
-        console.log(minz, maxz);
 
         var cx = (minx + maxx) / 2;
         var cy = (miny + maxy) / 2;
@@ -240,6 +422,13 @@
         camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
         camera.position.z = 100;
 
+        materials[0] = new THREE.PointsMaterial({size: 1, color:0x0000ff});// color: 0xaaaaaa, fog:false});
+        materials[1] = new THREE.PointsMaterial({size: 2, color:0x00ffff});// color: 0xaaaaaa, fog:false});
+        materials[2] = new THREE.PointsMaterial({size: 4, color:0xff0000});//color: 0xaaaaaa, fog:false});
+        materials[3] = new THREE.PointsMaterial({size: 8, color:0xffff00});//, color: 0xaaaaaa, fog:false});
+        materials[4] = new THREE.PointsMaterial({size: 16,color:0xffffff});//, color: 0xaaaaaa, fog:false});
+
+
         // scene
 
         scene = new THREE.Scene();
@@ -247,8 +436,8 @@
         var ambient = new THREE.AmbientLight( 0xf0f0f0 );
         scene.add( ambient );
 
-        var directionalLight = new THREE.DirectionalLight( 0xffaa99);
-        directionalLight.position.set( 0, 0, 1 );
+        //var directionalLight = new THREE.DirectionalLight( 0xffaa99);
+        //directionalLight.position.set( 0, 0, 1 );
 
         //texture = new THREE.Texture();
 
@@ -258,7 +447,7 @@
         renderer.setSize( window.innerWidth, window.innerHeight );
         container.appendChild( renderer.domElement );
 
-/*
+
         controls = new THREE.FirstPersonControls( camera );
 
         controls.movementSpeed = 500;
@@ -267,8 +456,9 @@
         controls.constrainVertical = true;
         controls.verticalMin = 0.75;
         controls.verticalMax = 2.75;
-        controls.mouseDragOn = true;
-        */
+        controls.activeLook = false;
+
+        //controls.activeLook = false;
 
 
         //controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -294,6 +484,15 @@
         };
 
 
+        var cp = octree.bounds.centre;
+        var v = new THREE.Vector3(cp.x, cp.y, cp.z);
+
+        v.subVectors(v, camera.position);
+        v.normalize();
+
+        var speed = 50;
+        v.multiplyScalar(speed);
+
      //   console.log(event.keyCode);
         switch(event.keyCode)
         {
@@ -306,10 +505,13 @@
 
 
             case keys.W:
-                camera.position.z +=10;
+                //camera.position.z +=10;
+                    //camera.position.addVectors(camera, v);
+                    //console.log(v);
+                    camera.position.addVectors(camera.position, camera.getWorldDirection().multiplyScalar(speed));
                 break;
             case keys.S:
-                camera.position.z -=10;
+                camera.position.subVectors(camera.position, camera.getWorldDirection().multiplyScalar(speed));
                 break;
             case keys.A:
                 camera.position.x -=10;
@@ -319,15 +521,17 @@
                 break;
             case keys.MINUS:
                 camera.position.y -=10;
-                break
+                break;
             case keys.PLUS:
                 camera.position.y +=10;
-                break
+                break;
 
 
 
 
         }
+
+        rebuildMesh(); // campos(first);
         //console.log(camera.position);
 
     }
@@ -363,17 +567,22 @@
 
     }
 
+    function msg(text)
+    {
+        infoDiv.innerHTML = text;
+    }
+
     function render() {
 
-        camera.rotation.z = 0;
+        //camera.rotation.z = 0;
         // camera.position.x += ( mouseX - camera.position.x ) * .05;
         // camera.position.y += ( - mouseY - camera.position.y ) * .05;
 
-        infoDiv.innerHTML = camera.position.x.toFixed(1)+","+camera.position.y.toFixed(1)+","+camera.position.z.toFixed(1)+", rot = "+(camera.rotation.x ).toFixed(2)+", "+(camera.rotation.y  ).toFixed(2)+", "+(camera.rotation.z).toFixed(2);
+        //infoDiv.innerHTML = camera.position.x.toFixed(1)+","+camera.position.y.toFixed(1)+","+camera.position.z.toFixed(1)+", rot = "+(camera.rotation.x ).toFixed(2)+", "+(camera.rotation.y  ).toFixed(2)+", "+(camera.rotation.z).toFixed(2);
 
-        rebuildMesh(); // campos(first);
+
          //camera.lookAt( scene.position );
-        //controls.update( clock.getDelta() );
+      //  controls.update( clock.getDelta() );
         renderer.render( scene, camera );
 
     }
