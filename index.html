@@ -4,6 +4,7 @@
     <title>very simple raytracer</title>
     <script src="Vector3.js"></script>
     <script src="Sphere.js"></script>
+    <script src="Plane.js"></script>
 </head>
 
 <body>
@@ -19,21 +20,25 @@
 
     var SWIDTH = 800, SHEIGHT=600;
 
-    var DepthShadingDistance = 25;
+    var DepthShadingDistance = 20;
 
     var Camera = new Vector3([0,0,-5]);
     var ProjectionPlane = genProjectionPlane(SWIDTH, SHEIGHT);
     var SceneObjects = [];
 
     var testobj = new Sphere(new Vector3([0.25, 2, 5]), 3);
-    var testobj2 = new Sphere(new Vector3([-2.5, 1, 7]), 1.5);
-    var testobj3 = new Sphere(new Vector3([-8, 5, 10]), 2);
+    var testobj2 = new Sphere(new Vector3([-4, -2, 18]), 10);
+    var testobj3 = new Sphere(new Vector3([-4, 5, 8]), 2);
+
+    var testPlane = new Plane(new Vector3([0,1,0]), 4.5);
+
     testobj2.colour = [0,0,255,255];
     testobj3.colour = [0,255,0,255];
 
     SceneObjects.push(testobj);
     SceneObjects.push(testobj2);
     SceneObjects.push(testobj3);
+    SceneObjects.push(testPlane);
 
 
     var canvas = document.getElementById('display');
@@ -73,12 +78,17 @@
             if (result.hit) {
                 var col = result.object.colour;
 
+                var scale = 1.1;
                 // cheap ass depth-shading
-                var shade = result.dist / DepthShadingDistance;
-                if (shade > 1) shade = 1;
-                shade = 1-shade;
+                var shade = result.dist / (DepthShadingDistance*scale);
+                //if (shade > 1) shade = 1;
+                shade = scale-shade;
 
-                pset(x, y, [col[0]*shade, col[1]*shade, col[2]*shade, col[3]]);
+                var r = col[0] * shade, g = col[1]*shade, b = col[2] *shade;
+                if (r > 255) r=255; if (g > 255) g=255; if (b>255) b=255;
+                if (r<0) r=0; if (g<0) g= 0; if (b<0) b=0;
+
+                pset(x, y, [r,g,b,col[3]]);
 
             }
 
