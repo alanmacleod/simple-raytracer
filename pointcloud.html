@@ -102,15 +102,15 @@
     var first;
     function loadPoints()
     {
-        $.getJSON('./data/stadium.json', function(data){
+        $.getJSON('./data/stadium-c.json', function(data){
 
             console.log("point cloud size = "+data.length);
 
             for (var t= 0,l=data.length; t<l;t++)
             {
-                var x = (data[t].x - 630000) / 10;
-                var z = (data[t].y - 840000) / 10;
-                var y = (data[t].z) / 10;
+                var x = data[t].x / 10;
+                var y = (data[t].y ) / 10;
+                var z = (data[t].z) / 10;
 
                 data[t].x = x;
                 data[t].y = y;
@@ -172,6 +172,7 @@
         //console.log("Cam -> Tree distance = "+dist);
 
 
+        var numScenePoints = 0;
 
         OctreeCull2(octree, camera.position);
 
@@ -182,7 +183,6 @@
 
         }
 
-        msg("Rendernodes: "+s);
 
         for (var t=0; t<cloudList.length; t++)
         {
@@ -205,6 +205,7 @@
             if (node.size >16) mindex = 4;
 
             var geometry = new THREE.Geometry();
+            var colours = [];
 
             for (var t= 0,Q=node.points.length; t<Q;t++)
             {
@@ -217,9 +218,15 @@
 
                 //geometries[l].vertices.push(v);
                 geometry.vertices.push(v);
+                colours[t] = new THREE.Color();
+                colours[t].setRGB(p.c.r/255, p.c.g/255, p.c.b/255);
+
+                numScenePoints++;
                 //geometries[l] = geometry;
 
             }
+
+            //geometry.colors = colours;
 
             var cloud = new THREE.Points(geometry, materials[mindex]);
             //if (mindex == 3)
@@ -227,6 +234,10 @@
             cloudList.push(cloud);
 
         }
+
+        msg("Total scene = "+numScenePoints+". Rendernodes: "+s);
+
+
 
 
     }
@@ -422,11 +433,11 @@
         camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
         camera.position.z = 100;
 
-        materials[0] = new THREE.PointsMaterial({size: 1, color:0x0000ff});// color: 0xaaaaaa, fog:false});
-        materials[1] = new THREE.PointsMaterial({size: 2, color:0x00ffff});// color: 0xaaaaaa, fog:false});
-        materials[2] = new THREE.PointsMaterial({size: 4, color:0xff0000});//color: 0xaaaaaa, fog:false});
-        materials[3] = new THREE.PointsMaterial({size: 8, color:0xffff00});//, color: 0xaaaaaa, fog:false});
-        materials[4] = new THREE.PointsMaterial({size: 16,color:0xffffff});//, color: 0xaaaaaa, fog:false});
+        materials[0] = new THREE.PointsMaterial({size: 2,  color:0x0000ff});//vertexColors: THREE.VertexColors});// color: 0xaaaaaa, fog:false});
+        materials[1] = new THREE.PointsMaterial({size: 4, color:0x00ffff});//vertexColors: THREE.VertexColors});// color: 0xaaaaaa, fog:false});
+        materials[2] = new THREE.PointsMaterial({size: 8, color:0xff0000});// vertexColors: THREE.VertexColors});//color: 0xaaaaaa, fog:false});
+        materials[3] = new THREE.PointsMaterial({size: 16, color:0xffff00});// vertexColors: THREE.VertexColors});//, color: 0xaaaaaa, fog:false});
+        materials[4] = new THREE.PointsMaterial({size: 32, color:0xffffff});// vertexColors: THREE.VertexColors});//, color: 0xaaaaaa, fog:false});
 
 
         // scene
@@ -458,7 +469,7 @@
         controls.verticalMax = 2.75;
         controls.activeLook = false;
 
-        //controls.activeLook = false;
+        controls.activeLook = true;
 
 
         //controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -473,7 +484,7 @@
         //console.log(camera.position, camera.rotation);
 
         window.addEventListener( 'resize', onWindowResize, false );
-        window.addEventListener( 'keydown', onKeyDown, false );
+       // window.addEventListener( 'keydown', onKeyDown, false );
 
     }
 
@@ -531,7 +542,7 @@
 
         }
 
-        rebuildMesh(); // campos(first);
+         // campos(first);
         //console.log(camera.position);
 
     }
@@ -580,9 +591,9 @@
 
         //infoDiv.innerHTML = camera.position.x.toFixed(1)+","+camera.position.y.toFixed(1)+","+camera.position.z.toFixed(1)+", rot = "+(camera.rotation.x ).toFixed(2)+", "+(camera.rotation.y  ).toFixed(2)+", "+(camera.rotation.z).toFixed(2);
 
-
+        rebuildMesh();
          //camera.lookAt( scene.position );
-      //  controls.update( clock.getDelta() );
+        controls.update( clock.getDelta() );
         renderer.render( scene, camera );
 
     }
