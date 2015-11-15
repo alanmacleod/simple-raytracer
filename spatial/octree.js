@@ -9,7 +9,8 @@ function Octree(bounds)
     this.leaf = false;
     this.size = -1;
     this.level = 0;
-
+    this.geometry = null;
+    this.cloud = null;
 
     this.build = function(points)
     {
@@ -43,43 +44,38 @@ function Octree(bounds)
 
                 this.children[c].build(childPoints);
 
-                /*
-                if (childNodeInfo)
-                {
-                    if (childNodeInfo.size > childSize)
-                        childSize = childNodeInfo.size;
-
-                    if (childNodeInfo.points != null)
-                    {
-                        for (var t = 0, l = childNodeInfo.points.length; t < l; t++)
-                            allChildPoints.push(childNodeInfo.points[t]);
-                    }
-                }
-                */
 
             }
 
-           // var resamplePasses = 1;
 
-            // Down sample our point cluster and also scale up our point size to match the change in density
-
-           // this.points = this.downSample(allChildPoints, resamplePasses);
-           // this.size = childSize * Math.pow(2, resamplePasses);
-
-          //  console.log(this.size);
-
-            return ;//{points: this.points, size: this.size}
+            return ;
 
         } else {
             this.leaf = true;
 
+            for (var t=0; t<points.length; t++) this.points.push(points[t]);
+
+            this.geometry = new THREE.Geometry();
+
             for (var t=0; t<points.length; t++)
-                this.points.push(points[t]);
+            {
+                var p = points[t];
+                var v = new THREE.Vector3();
+
+                v.x = p.x;
+                v.y = p.y;
+                v.z = p.z;
+
+                this.geometry.vertices.push(v);
+            }
+
+            this.cloud = new THREE.Points(this.geometry);
 
             return {points: this.points, size: this.size};
-            //return this.points; //return what we got to the parent to perform sampling.
+           //return what we got to the parent to perform sampling.
         }
     };
+
 
     this.resampleTree = function(node)
     {
@@ -107,6 +103,22 @@ function Octree(bounds)
 
 
             node.points = this.downSample(childrenPoints, 1);
+            node.geometry = new THREE.Geometry();
+
+            for (var t=0; t<node.points.length; t++)
+            {
+                var p = node.points[t];
+                var v = new THREE.Vector3();
+
+                v.x = p.x;
+                v.y = p.y;
+                v.z = p.z;
+
+                node.geometry.vertices.push(v);
+            }
+
+            node.cloud = new THREE.Points(node.geometry);
+
 
             //return {leaf: false, points: node.points};
             return node.points;

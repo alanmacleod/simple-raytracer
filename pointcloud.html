@@ -42,11 +42,15 @@
     <div id="lodProgress" style="font-size: 12pt; width: auto; color:yellowgreen;"></div>
 </div>
 
+<div id="container"></div>
 
 <script>
 
+    var SCREEN_WIDTH = 800;
+    var SCREEN_HEIGHT = 600;
+
     var infoDiv = document.getElementById("lodProgress");
-    var container;
+    var container = document.getElementById("container");
 
     var camera, scene, renderer;
 
@@ -145,7 +149,8 @@
     {
         if (octree == null) return;
 
-        renderNodes = [];
+       // renderNodes = [];
+
 
         var frustum = new THREE.Frustum();
         var projScreenMatrix = new THREE.Matrix4();
@@ -172,16 +177,22 @@
         //console.log("Cam -> Tree distance = "+dist);
 
 
-        var numScenePoints = 0;
+        //renderNodePtr = 0;
+        //var numScenePoints = 0;
+        nodesToRender = [];
 
         OctreeCull2(octree, camera.position);
 
+        //var renderNodeLength = renderNodePtr;
+
+        /*
         var s = "";
-        for (var t=0; t<renderNodes.length; t++)
+        for (var t=0; t<renderNodeLength; t++)
         {
             s += "["+renderNodes[t].points.length+": "+renderNodes[t].size+"]";
 
         }
+        */
 
 
         for (var t=0; t<cloudList.length; t++)
@@ -191,8 +202,29 @@
 
         cloudList = [];
 
+        for (var n=0; n<nodesToRender.length; n++)
+        {
+            var oct = nodesToRender[n].node;
+            var nodesize = nodesToRender[n].size;
 
-        for (var l=0; l<renderNodes.length; l++)
+            var mindex = 0;
+            if (nodesize ==1) mindex = 0;
+            if (nodesize ==2) mindex = 1;
+            if (nodesize ==4) mindex = 2;
+            if (nodesize ==8) mindex = 3;
+            if (nodesize ==16) mindex = 4;
+            if (nodesize >16) mindex = 4;
+
+            oct.cloud.material = materials[mindex];
+
+            scene.add(oct.cloud);
+            cloudList.push(oct.cloud);
+
+        }
+
+        return;
+
+        for (var l=0; l<renderNodeLength; l++)
         {
             var node = renderNodes[l];
 
@@ -235,7 +267,7 @@
 
         }
 
-        msg("Total scene = "+numScenePoints+". Rendernodes: "+s);
+        msg("Total scene = "+numScenePoints+". Rendernodes: "+s+ " renderNodeLength="+renderNodeLength);
 
 
 
@@ -244,7 +276,6 @@
 
 
 
-    var renderNodes = [];
 
     function levelDetail(l)
     {
@@ -317,18 +348,26 @@
 
     }
 
+    var renderNodePtr = 0;
+    var renderNodes = [];
+
+    var nodesToRender = [];
+
     function OctreeCull2(oct, camposVec3)
     {
         if (oct.leaf == true)
         {
             if (oct.points.length > 0)
             {
+                /*
                 var renderPoints = [];
                 for (var t = 0; t < oct.points.length; t++) {
                     renderPoints.push(oct.points[t]);
                 }
 
-                renderNodes.push({points: renderPoints, size:1});
+                renderNodes[renderNodePtr++] = {points: renderPoints, size:1};
+                */
+                nodesToRender.push({node: oct, size: 1});
             }
             return;
         }
@@ -343,14 +382,19 @@
      //   console.log("if "+lodDist+" > "+thresh);
         if (lodDist > nodeDetail.dist) {
             if (oct.points.length > 0) {
-                //console.log("Getting pts from level " + oct.level);
+               // console.log("Getting pts from level " + oct.level);
+                /*
                 var renderPoints = [];
                 for (var t = 0; t < oct.points.length; t++) {
                     renderPoints.push(oct.points[t]);
                 }
 
                 //console.log(nodeDetail.size);
-                renderNodes.push({points: renderPoints, size: nodeDetail.size});
+                //renderNodes.push({points: renderPoints, size: nodeDetail.size});
+                renderNodes[renderNodePtr++] = {points: renderPoints, size:nodeDetail.size};
+                */
+                nodesToRender.push({node:oct, size:nodeDetail.size});
+
             }
 
             return;
@@ -360,13 +404,17 @@
             if (oct.points.length > 0)
             {
                 //console.log("Getting pts from level " + oct.level);
+                /*
                 var renderPoints = [];
                 for (var t = 0; t < oct.points.length; t++) {
                     renderPoints.push(oct.points[t]);
                 }
 
                 //console.log(nodeDetail.size);
-                renderNodes.push({points: renderPoints, size: nodeDetail.size});
+                //renderNodes.push({points: renderPoints, size: nodeDetail.size});
+                renderNodes[renderNodePtr++] = {points: renderPoints, size:nodeDetail.size};
+                */
+                nodesToRender.push({node:oct, size:nodeDetail.size});
             }
             return;
 
@@ -427,8 +475,10 @@
 
     function init() {
 
-        container = document.createElement( 'div' );
-        document.body.appendChild( container );
+        //container = document.createElement( 'div' );
+        //document.body.appendChild( container );
+
+        container.setAttribute("style", "width: "+SCREEN_WIDTH+"px; height:"+SCREEN_HEIGHT+"px");
 
         camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
         camera.position.z = 100;
@@ -455,7 +505,8 @@
 
         renderer = new THREE.WebGLRenderer();
         renderer.setPixelRatio( window.devicePixelRatio );
-        renderer.setSize( window.innerWidth, window.innerHeight );
+        //renderer.setSize( window.innerWidth, window.innerHeight );
+        renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
         container.appendChild( renderer.domElement );
 
 
@@ -483,7 +534,7 @@
 
         //console.log(camera.position, camera.rotation);
 
-        window.addEventListener( 'resize', onWindowResize, false );
+       // window.addEventListener( 'resize', onWindowResize, false );
        // window.addEventListener( 'keydown', onKeyDown, false );
 
     }
