@@ -19,6 +19,15 @@ function Vector3(x,y,z) {
         this.z = 0 || z;
     }
 
+    this.distanceTo = function(v)
+    {
+        var x = this.x - v.x;
+        var y = this.y - v.y;
+        var z = this.z - v.z;
+
+        return Math.sqrt((x * x) + (y * y) + (z * z));
+    };
+
     this.toString = function()
     {
         return "["+this.x+", "+this.y+", "+this.z+"]";

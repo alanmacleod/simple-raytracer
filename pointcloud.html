@@ -145,11 +145,22 @@
         });
     }
 
+    function Raycast()
+    {
+        var w = SCREEN_WIDTH, h = SCREEN_HEIGHT;
+
+        for (var y=0; y<h; y++)
+        {
+            for (var x=0; x<w; x++)
+            {
+                // raycast here lol
+            }
+        }
+    }
+
     function rebuildMesh()
     {
         if (octree == null) return;
-
-       // renderNodes = [];
 
 
         var frustum = new THREE.Frustum();
@@ -159,40 +170,11 @@
         projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
         frustum.setFromMatrix( projScreenMatrix );
 
-        //console.clear();
-        for (var t=0; t<frustum.planes.length; t++)
-        {
+        Raycast();
 
-            //console.log(frustum.planes[t].normal);
-
-        }
-
-        var nc = octree.bounds.centre;
-        var centreTree = new THREE.Vector3(nc.x, nc.y, nc.z);
-
-//        var dist = camera.position.distanceTo(centreTree);
-
-        //console.log("Cam ["+camera.position.x.toFixed(2)+", "+camera.position.y.toFixed(2)+", "+camera.position.z.toFixed(2)+"]   " +"Tree ["+centreTree.x.toFixed(2)+", "+centreTree.y.toFixed(2)+", "+centreTree.z.toFixed(2)+"]   dist = " +dist);
-
-        //console.log("Cam -> Tree distance = "+dist);
-
-
-        //renderNodePtr = 0;
-        //var numScenePoints = 0;
         nodesToRender = [];
 
         OctreeCull2(octree, camera.position);
-
-        //var renderNodeLength = renderNodePtr;
-
-        /*
-        var s = "";
-        for (var t=0; t<renderNodeLength; t++)
-        {
-            s += "["+renderNodes[t].points.length+": "+renderNodes[t].size+"]";
-
-        }
-        */
 
 
         for (var t=0; t<cloudList.length; t++)
@@ -224,53 +206,7 @@
 
         return;
 
-        for (var l=0; l<renderNodeLength; l++)
-        {
-            var node = renderNodes[l];
-
-            var mindex = 0;
-            if (node.size ==1) mindex = 0;
-            if (node.size ==2) mindex = 1;
-            if (node.size ==4) mindex = 2;
-            if (node.size ==8) mindex = 3;
-            if (node.size ==16) mindex = 4;
-            if (node.size >16) mindex = 4;
-
-            var geometry = new THREE.Geometry();
-            var colours = [];
-
-            for (var t= 0,Q=node.points.length; t<Q;t++)
-            {
-                var p = node.points[t];
-                var v = new THREE.Vector3();
-
-                v.x = p.x;
-                v.y = p.y;
-                v.z = p.z;
-
-                //geometries[l].vertices.push(v);
-                geometry.vertices.push(v);
-                colours[t] = new THREE.Color();
-                colours[t].setRGB(p.c.r/255, p.c.g/255, p.c.b/255);
-
-                numScenePoints++;
-                //geometries[l] = geometry;
-
-            }
-
-            //geometry.colors = colours;
-
-            var cloud = new THREE.Points(geometry, materials[mindex]);
-            //if (mindex == 3)
-                scene.add(cloud);
-            cloudList.push(cloud);
-
-        }
-
-        msg("Total scene = "+numScenePoints+". Rendernodes: "+s+ " renderNodeLength="+renderNodeLength);
-
-
-
+        //msg("Total scene = "+numScenePoints+". Rendernodes: "+s+ " renderNodeLength="+renderNodeLength);
 
     }
 

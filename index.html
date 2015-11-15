@@ -3,6 +3,7 @@
 <head>
     <title>very simple raytracer</title>
     <script src="3d/Vector3.js"></script>
+    <script src="3d/Box.js"></script>
     <script src="3d/Sphere.js"></script>
     <script src="3d/Plane.js"></script>
 </head>
@@ -26,16 +27,21 @@
     var ProjectionPlane = genProjectionPlane(SWIDTH, SHEIGHT);
     var SceneObjects = [];
 
-    var testobj = new Sphere(new Vector3([2.5, 2, 5]), 3);
+    var bx = 1.35, by = -3, bz = 3, bsize = 4.5;
+    var testobj0 = new BoxAABB(new Vector3([bx, by, bz]), new Vector3([bx+bsize, by+bsize, bz+bsize]), [32,128,200,255]);
+    var testobj1 = new Sphere(new Vector3([2.5, 2, 5]), 3);
     var testobj2 = new Sphere(new Vector3([-4, -2, 18]), 10);
-    var testobj3 = new Sphere(new Vector3([-4, 5, 8]), 2);
+    var testobj3 = new Sphere(new Vector3([-2, 0, 6]), 3.3);
 
     var testPlane = new Plane(new Vector3([0,1,0]), 3.5);
+
+    var lastRayObjMatch = -1;
 
     testobj2.colour = [0,0,255,255];
     testobj3.colour = [0,255,0,255];
 
-    SceneObjects.push(testobj);
+    SceneObjects.push(testobj0);
+    SceneObjects.push(testobj1);
     SceneObjects.push(testobj2);
     SceneObjects.push(testobj3);
     SceneObjects.push(testPlane);
@@ -151,9 +157,11 @@
         return n;
     }
 
+
     function Raytrace(ray)
     {
         var tracepoint = {dist: 1000000};
+        var newLastRayObjMatch = -2;
 
         for (var t=0; t<SceneObjects.length; t++)
         {
@@ -167,12 +175,23 @@
                     tracepoint.hit = true;
                     tracepoint.object = obj;
                     tracepoint.dist = result.dist;
+                    newLastRayObjMatch = t;
                 }
             }
         }
+/*
+        below; reorder scene objects so we raytrace our last matched object FIRST on the next ray...
+               works but no significant speed improvement doh :/
+
+        if (lastRayObjMatch != newLastRayObjMatch)
+        {
+            lastRayObjMatch = newLastRayObjMatch;
+            var lastObj = SceneObjects.splice(lastRayObjMatch, 1)[0];
+            SceneObjects.splice(0,0,lastObj);
+        }
+        */
 
         return tracepoint;
-
     }
 
     function pset(x,y,c)
